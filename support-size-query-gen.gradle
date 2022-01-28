@@ -1,0 +1,31 @@
+
+
+/**
+ * generate support size query
+ */
+task supportSizeQueryGen {
+
+    doLast {
+        def jsonHdlr = new groovy.json.JsonSlurper() 
+        def mediaBreaks = inputs.files.singleFile
+
+        def setting = jsonHdlr.parse(mediaBreaks)
+        def breakPoints = [:]
+        setting.breaks.each {
+            breakPoints[it.name] = it.value
+        }
+
+        def mediaQuery = "(min-width: $breakPoints.md)"
+        
+        def supportSetting = [
+            "support-query": "$mediaQuery"
+        ]
+        def jsonOut = new groovy.json.JsonOutput()
+        supportSetting = jsonOut.toJson(supportSetting)
+        outputs.files.each {
+            it.text = supportSetting 
+        }
+    }
+}
+
+// vi: se ts=4 sw=4 et:

@@ -1,0 +1,25 @@
+
+task breaksSassGen {
+    doLast {
+
+        def jsonHdlr = new groovy.json.JsonSlurper() 
+        def setting = jsonHdlr.parse(inputs.files.singleFile)
+
+        def breaksContents = []
+        setting.breaks.each {
+            breaksContents << "$it.name : $it.value" 
+        }
+        breaksContents = breaksContents.join(", \n")
+        
+        outputs.files.each {
+            it.text = """
+\$basic-breakpoints: (
+$breaksContents
+);
+"""
+        }
+    }
+}
+ 
+
+// vi: se ts=4 sw=4 et:

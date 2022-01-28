@@ -1,0 +1,205 @@
+plugins {
+    id 'org.jetbrains.kotlin.multiplatform' 
+    id 'io.miret.etienne.sass' version '1.1.2'
+}
+
+repositories {
+    jcenter()
+}
+
+ext.siteSetting = [
+    targetDirectory: 'oc-pdf-viewer'
+]
+
+ext.webpackMode = 'development'
+ext.webpackSetting = [:]
+ext.webpackSetting.gradleBuildJs= 'gradle-build.js'
+ext.webpackSetting.gradleBuildPath =
+    file("webpack.config.d/00_${webpackSetting.gradleBuildJs}")
+
+kotlin {
+    js {
+        browser {
+            webpackTask {
+                output.libraryTarget = 'umd'
+            }
+        }
+    }
+
+    sourceSets {
+        jsCommon {
+            dependencies {
+                compileOnly npm('dialog-polyfill', '>=0.5.6')
+            }
+        }
+
+        jsMain {
+            dependsOn jsCommon
+            dependencies {
+                implementation kotlin('stdlib-js')
+            }
+        }
+    }
+}
+
+/**
+ * get webpack task name
+ */
+def getWebpackTaskName() {
+    return "jsBrowser${ext.webpackMode.capitalize()}Webpack"
+}
+
+/**
+ * get distribution directory
+ */
+def getDistributionDir() {
+    def result = null
+    kotlin {
+        js {
+            browser {
+                distribution {
+                    result = directory
+                }
+            }
+        }
+    }
+    return result
+}
+
+sass {
+    version = '1.49.0'
+}
+
+
+
+compileSass {
+    def destDir = "${buildDir}/${siteSetting['targetDirectory']}/css"
+
+    sourceDir = file("src/style")
+    outputDir = file(destDir)
+}
+
+apply from: 'breaks-sass-gen.gradle'
+
+breaksSassGen.inputs.file 'src/config/media-breaks.json' 
+breaksSassGen.outputs.file 'src/style/_breaks.sass'
+
+
+compileSass.dependsOn breaksSassGen
+
+/**
+ * get webpack mode
+ */
+def getWebpackMode() {
+    def result = null
+    kotlin {
+        js {
+            browser {
+                commonWebpackConfig {
+                    result = mode
+                }
+            }
+        }
+    }
+    return result
+}
+
+task setupWebpackConfig {
+
+    doLast {
+        def buildSetting = [:]
+        
+        buildSetting['configDir'] = file('src/config')
+        def tmp = new groovy.text.StreamingTemplateEngine()
+        def gradleBuildSrc = file("tools/${webpackSetting.gradleBuildJs}")
+        tmp = tmp.createTemplate(gradleBuildSrc) 
+        def jsonGenerator = new groovy.json.JsonGenerator.Options()
+            .addConverter(File.class) { it.toString() }
+            .build()
+            
+        def buildConfig = groovy.json.JsonOutput.prettyPrint(
+            jsonGenerator.toJson(buildSetting))
+        def gradleBuildContents = tmp.make([
+            config: buildConfig
+        ])
+        webpackSetting.gradleBuildPath.text = gradleBuildContents
+    }
+}
+
+jsBrowserDevelopmentWebpack.dependsOn setupWebpackConfig
+jsBrowserProductionWebpack.dependsOn setupWebpackConfig
+
+/**
+ * copy javascript into site image directory
+ */
+task copyJsIntoSiteImage {
+    def destDir = "${buildDir}/${siteSetting['targetDirectory']}/js"
+    def srcDir = getDistributionDir()    
+
+    doLast {
+        copy {
+            from srcDir
+            into destDir
+            include '**/*.js'
+            include '**/*.map'
+        }
+    }
+}
+
+
+
+copyJsIntoSiteImage.dependsOn tasks.getByPath(getWebpackTaskName())
+
+
+/**
+ * copy php files into site image directory
+ */
+task copyPhpIntoSiteImage {
+   
+    def destDir = "${buildDir}/${siteSetting['targetDirectory']}"
+    def srcDir = file('src/php')
+
+
+    copy {
+        from srcDir
+        into destDir
+        include '**/*.php'
+    }
+}
+
+apply from: 'support-size-query-gen.gradle'
+
+supportSizeQueryGen.inputs.file 'src/config/media-breaks.json'
+supportSizeQueryGen.outputs.file "${buildDir}/${siteSetting['targetDirectory']}/config/media-query.json"
+
+/**
+ * copy src/config directory into site image direcctory 
+ */
+task copyConfigIntoSiteImage {
+   
+    def destDir = "${buildDir}/${siteSetting['targetDirectory']}/config"
+    def srcDir = file('src/config')
+
+
+    copy {
+        from srcDir
+        into destDir
+        include '**/*.json'
+    }
+}
+
+/**
+ * build site imate
+ */
+task buildSiteImage {
+
+}
+
+buildSiteImage.dependsOn build
+buildSiteImage.dependsOn copyPhpIntoSiteImage
+buildSiteImage.dependsOn copyJsIntoSiteImage
+buildSiteImage.dependsOn copyConfigIntoSiteImage
+buildSiteImage.dependsOn compileSass
+buildSiteImage.dependsOn supportSizeQueryGen
+
+// vi: se ts=4 sw=4 et:

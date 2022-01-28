@@ -1,0 +1,31 @@
+{
+  "breaks": [
+    {
+      "name": "xs",
+      "value": 0
+    },
+    {
+      "name": "sm",
+      "value":  "576px"
+    },
+    {
+      "name": "md",
+      "value": "768px"
+    },
+    {
+      "name": "lg",
+      "value": "992px"
+    },
+    {
+      "name": "xl",
+      "value": "1200px"
+    },
+    {
+      "name": "xxl",
+      "value": "1400px"
+    }
+  ],
+  "__comments": [
+    "# vi: se ts=2 sw=2 et:" 
+  ]
+}
